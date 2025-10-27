@@ -580,4 +580,8 @@ function luau.load(bytecode: Bytecode, chunkname: string?, env: { [any]: any }?)
 	error("not implemented")
 end
 
+function luau.getReturnType(source: string): string
+	error("not implemented")
+end
+
 return luau
