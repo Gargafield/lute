@@ -28,17 +28,20 @@ struct IOHandle
             ioh->self.reset();
         };
 
-        uv_stream_t *stream = getStream();
+        uv_stream_t* stream = getStream();
         uv_read_stop(stream);
         uv_close((uv_handle_t*)stream, closeCb);
     }
 
-    uv_stream_t* getStream() {
-        if (auto* tty = streamVariant.get_if<uv_tty_t>())
-            return (uv_stream_t*)tty;
-        if (auto* pipe = streamVariant.get_if<uv_pipe_t>())
-            return (uv_stream_t*)pipe;
-        return nullptr;
+    uv_stream_t* getStream()
+    {
+        return Luau::visit(
+            [](auto& stream) -> uv_stream_t*
+            {
+                return (uv_stream_t*)&stream;
+            },
+            streamVariant
+        );
     }
 };
 
@@ -101,7 +104,7 @@ int read(lua_State* L)
         luaL_error(L, "Unsupported stdin type");
     }
 
-    uv_stream_t *stream = handle->getStream();
+    uv_stream_t* stream = handle->getStream();
     stream->data = handle.get();
     uv_read_start(stream, allocBuffer, onTtyRead);
     return lua_yield(L, 0);

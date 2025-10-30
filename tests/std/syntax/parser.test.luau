@@ -1,12 +1,12 @@
 local asserts = require("@std/assert")
 local fs = require("@std/fs")
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local test = require("@std/test")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
-local T = require("@lute/luau")
+local T = require("@std/luau")
 
 local function assertEqualsLocation(
 	assert: asserts.Asserts,
@@ -22,7 +22,7 @@ local function assertEqualsLocation(
 	assert.eq(actual["end"].column, endColumn)
 end
 
-test.suite("AstSerializer", function(suite)
+test.suite("Parser", function(suite)
 	suite:case("tokenContainsLeadingSpaces", function(assert)
 		local block = luau.parse("  local x = 1").root
 		assert.eq(#block.statements, 1)
@@ -135,7 +135,7 @@ test.suite("AstSerializer", function(suite)
 		end
 
 		visitDirectory("examples")
-		visitDirectory("tests/astSerializerTests")
+		visitDirectory("tests/parserExamples")
 	end)
 
 	suite:case("lineOffsetsField", function(assert)
