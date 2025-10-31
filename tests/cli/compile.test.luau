@@ -23,8 +23,8 @@ local COMPILEE_CONTENTS = [[return "Hello world"]]
 local lutePath = process.execpath()
 local tmpDir = system.tmpdir()
 
-test.suite("Lute CLI Compile", function(suite)
-	suite:case("Run compile", function(check)
+test.suite("stdlib_compile", function(suite)
+	suite:case("run_in_script_bytecode_compilation", function(check)
 		-- Setup
 		-- Create files
 		local compilerPath = path.join(tmpDir, "compiler.luau")
@@ -39,8 +39,9 @@ test.suite("Lute CLI Compile", function(suite)
 
 		local result = process.run({ path.format(lutePath), path.format(compilerPath), path.format(compileePath) })
 		-- Compilation should work with no memory leaks
+		local expectedNewline = system.os == "Windows_NT" and "\r\n" or "\n"
 		check.eq(result.stderr, "")
-		check.eq(result.stdout, "SUCCESS\n")
+		check.eq(result.stdout, "SUCCESS" .. expectedNewline)
 		check.eq(result.exitcode, 0)
 
 		-- -- Cleanup
