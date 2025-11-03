@@ -2675,7 +2675,7 @@ int load_luau(lua_State* L)
 }
 
 // ========== DRAFTING FRONTEND API ===========
-// A resolver that just provides a default configuration.
+// A resolver that just provides a default configuration. Based on CliConfigResolver in Analyze.cpp.
 struct DefaultConfigResolver : Luau::ConfigResolver
 {
     Luau::Config defaultConfig;
@@ -2720,12 +2720,6 @@ struct DefaultConfigResolver : Luau::ConfigResolver
             if (error)
                 configErrors.push_back({configPath, *error});
         }
-
-        // print out discovered aliases, to ensure this is working
-        // for (const auto& [aliasName, aliasPath] : result.aliases) {
-        //     printf("Discovered alias: '%s' -> '%s'\n", aliasName.c_str(), aliasPath.value.c_str());
-        // }
-        // printf("At path %s\n", path.c_str());
 
         return configCache[path] = result;
     }
@@ -2952,6 +2946,49 @@ int luau_getReturnType(lua_State* L)
     lua_pushlstring(L, returnTypeStr.c_str(), returnTypeStr.length());
 
     return 1; // We are returning one value (the string).
+}
+
+int luau_typeofmodule(lua_State* L)
+{
+    std::string modulePath = luaL_checkstring(L, 1);
+
+    DefaultConfigResolver configResolver(Luau::Mode::NoCheck);
+    Luau::FrontendOptions fopts;
+    fopts.retainFullTypeGraphs = true;
+
+    Luau::Frontend frontend(_, &configResolver, fopts); // TODO: write in Frontend something that uses the module resolver but doesn't run check (only type inference to get the graph)
+    Luau::registerBuiltinGlobals(frontend, frontend.globals);
+    Luau::freeze(frontend.globals.globalTypes);
+
+    frontend.check(_);
+
+    const Luau::SourceModule* sourceModule = frontend.getSourceModule(_);
+    if (!sourceModule)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    Luau::ModulePtr module = frontend.moduleResolver.getModule(_);
+    if (!module)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    // Luau::ToStringOptions opts;
+    // opts.exhaustive = true;
+    // opts.useLineBreaks = true;
+    // opts.functionTypeArguments = true;
+    // opts.scope = module->getModuleScope();
+
+    // std::string moduleTypeStr = Luau::toString(module->returnType, opts);
+    // lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
+
+    // return some data structure here representing the module's type graph
+    // use AstSerialize as reference?? or just use it idk
+
+    return 1;
 }
 
 

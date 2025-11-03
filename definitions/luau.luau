@@ -588,4 +588,8 @@ function luau.getReturnType(source: string): string
 	error("not implemented")
 end
 
+function luau.typeofmodule(modulepath: string): _ -- definitely not a string for return type
+	error("not implemented")
+end
+
 return luau
