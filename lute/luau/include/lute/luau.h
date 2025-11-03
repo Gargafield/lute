@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/resolverequire.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -26,6 +28,7 @@ static const luaL_Reg lib[] = {
     {"parseexpr", luau_parseexpr},
     {"compile", compile_luau},
     {"load", load_luau},
+    {"resolverequire", resolverequire_luau},
     {"getReturnType", luau_getReturnType},
     {nullptr, nullptr},
 };
