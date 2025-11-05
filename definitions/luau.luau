@@ -602,7 +602,7 @@ function luau.getReturnType(source: string): string
 	error("not implemented")
 end
 
-function luau.typeofmodule(modulepath: string): _ -- definitely not a string for return type
+function luau.typeofmodule(modulepath: string): string -- definitely not a string for return type in the end
 	error("not implemented")
 end
 
