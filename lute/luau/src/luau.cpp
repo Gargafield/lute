@@ -2565,7 +2565,7 @@ struct ModuleFileResolver : Luau::FileResolver
         if (auto expr = node->as<Luau::AstExprConstantString>()) // resolves string require
         {
             std::string requirePath(expr->value.data, expr->value.size);
-            // printf("Original require path: '%s' from module: %s\n", requirePath.c_str(), context->name.c_str());
+            printf("Original require path: '%s' from module: %s\n", requirePath.c_str(), context->name.c_str());
 
             std::string error;
             std::string chunkName = "@" + modulePath;
@@ -2576,7 +2576,7 @@ struct ModuleFileResolver : Luau::FileResolver
                 return std::nullopt;
             }
 
-            // printf("Resolved require path to: '%s'\n", absolutePath->c_str());
+            printf("Resolved require path to: '%s'\n", absolutePath->c_str());
             return {{*absolutePath}};
         }
 
@@ -2844,6 +2844,7 @@ int luau_typeofmodule(lua_State* L)
         return 1;
     }
 
+    // For now, we return a string representation of the module's type, but we will expand it to a TypeSerialize (similar to AstSerialize) in a subsequent PR.
     Luau::ToStringOptions opts;
     opts.exhaustive = true;
     opts.useLineBreaks = true;
@@ -2852,10 +2853,6 @@ int luau_typeofmodule(lua_State* L)
 
     std::string moduleTypeStr = Luau::toString(module->returnType, opts);
     lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
-
-    // return some data structure here representing the module's type graph
-    // use AstSerialize as reference??
-
     return 1;
 }
 
