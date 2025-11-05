@@ -77,6 +77,6 @@ function assertions.tableeq(lhs: { [unknown]: unknown }, rhs: { [unknown]: unkno
 	end
 end
 
-export type Asserts = typeof(assertions)
+export type asserts = typeof(assertions)
 
 return table.freeze(assertions)

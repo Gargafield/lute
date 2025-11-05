@@ -1,14 +1,14 @@
 local types = require("./types")
 local assert = require("./assert")
 
-type Test = types.Test
-type TestCase = types.TestCase
-type TestSuite = types.TestSuite
-type TestEnvironment = types.TestEnvironment
-type TestReporter = types.TestReporter
-type FailedTest = types.FailedTest
+type Test = types.test
+type TestCase = types.testcase
+type TestSuite = types.testsuite
+type TestEnvironment = types.testenvironment
+type TestReporter = types.testreporter
+type FailedTest = types.failedtest
 
-local function run(env: TestEnvironment): TestRunResult
+local function run(env: TestEnvironment): types.testrunresult
 	local failures: { FailedTest } = {}
 	local total = 0
 	local failed = 0
