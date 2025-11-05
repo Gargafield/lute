@@ -1,7 +1,3 @@
---!strict
--- @std/assert
--- Standard assertion library for Luau
-
 local assertions = {}
 
 function assertions.eq<T>(lhs: T, rhs: T)
