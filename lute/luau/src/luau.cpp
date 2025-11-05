@@ -2837,13 +2837,6 @@ int luau_typeofmodule(lua_State* L)
 
     frontend.check(modulePath);
 
-    const Luau::SourceModule* sourceModule = frontend.getSourceModule(modulePath);
-    if (!sourceModule)
-    {
-        lua_pushnil(L);
-        return 1;
-    }
-
     Luau::ModulePtr module = frontend.moduleResolver.getModule(modulePath);
     if (!module)
     {
@@ -2861,7 +2854,7 @@ int luau_typeofmodule(lua_State* L)
     lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
 
     // return some data structure here representing the module's type graph
-    // use AstSerialize as reference?? or just use it idk
+    // use AstSerialize as reference??
 
     return 1;
 }
