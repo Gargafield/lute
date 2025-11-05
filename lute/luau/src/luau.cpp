@@ -2539,11 +2539,6 @@ struct AstSerialize : public Luau::AstVisitor
 // Based on CliFileResolver in Analyze.cpp.
 struct ModuleFileResolver : Luau::FileResolver
 {
-    ModuleFileResolver(std::string modulePath = "")
-        : modulePath(std::move(modulePath))
-    {
-    }
-
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {
         Luau::SourceCode::Type sourceType;
@@ -2568,8 +2563,8 @@ struct ModuleFileResolver : Luau::FileResolver
             printf("Original require path: '%s' from module: %s\n", requirePath.c_str(), context->name.c_str());
 
             std::string error;
-            std::string chunkName = "@" + modulePath;
-            std::optional<std::string> absolutePath = resolveRequire(requirePath, chunkName, &error);
+            std::string requirerChunkname = "@" + context->name;
+            std::optional<std::string> absolutePath = resolveRequire(requirePath, std::move(requirerChunkname), &error);
             if (!absolutePath)
             {
                 printf("Failed to resolve require: %s\n", error.c_str());
@@ -2582,8 +2577,6 @@ struct ModuleFileResolver : Luau::FileResolver
 
         return std::nullopt;
     }
-
-    std::string modulePath;
 };
 
 // Based on CliConfigResolver in Analyze.cpp.
@@ -2826,7 +2819,7 @@ int luau_typeofmodule(lua_State* L)
 {
     std::string modulePath = luaL_checkstring(L, 1);
 
-    ModuleFileResolver fileResolver(modulePath);
+    ModuleFileResolver fileResolver;
     ModuleConfigResolver configResolver(Luau::Mode::NoCheck);
     Luau::FrontendOptions fopts;
     fopts.retainFullTypeGraphs = true;
