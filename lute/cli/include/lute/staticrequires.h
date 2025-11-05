@@ -2,6 +2,8 @@
 
 #include "Luau/DenseHash.h"
 
+#include "reporter.h"
+
 #include <optional>
 #include <string>
 #include <vector>
@@ -9,7 +11,7 @@
 class StaticRequireTracer
 {
 public:
-    StaticRequireTracer() = default;
+    StaticRequireTracer(LuteReporter& reporter);
 
     // Trace dependencies starting from an entry point file
     // rootDirectory: Base directory for resolving all requires
@@ -25,6 +27,7 @@ public:
     }
 
     void printRequireGraph() const;
+
 private:
     Luau::DenseHashSet<std::string> visited{""};
     std::vector<std::string> discovered;
@@ -36,4 +39,6 @@ private:
 
     // Resolve a require path relative to the requiring file
     std::optional<std::string> resolveRequire(const std::string& requirer, const std::string& required);
+
+    LuteReporter& reporter;
 };

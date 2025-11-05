@@ -30,6 +30,11 @@ public:
     }
 };
 
+StaticRequireTracer::StaticRequireTracer(LuteReporter& reporter)
+    : reporter(reporter)
+{
+}
+
 std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirectory, const std::string& entryPoint)
 {
     visited.clear();
@@ -57,7 +62,7 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
         std::optional<std::string> source = readFile(fullPath);
         if (!source)
         {
-            fprintf(stderr, "Warning: Could not read file '%s'\n", fullPath.c_str());
+            reporter.formatError("Warning: Could not read file '%s'\n", fullPath.c_str());
             continue;
         }
 
@@ -82,7 +87,7 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
                 bool isBuiltinLibrary = req.rfind("@std/", 0) == 0 || req.rfind("@lute/", 0) == 0;
                 if (!isBuiltinLibrary)
                 {
-                    fprintf(stderr, "Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
+                    reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
                 }
             }
         }

@@ -7,6 +7,7 @@
 
 #include "cliruntimefixture.h"
 #include "luteprojectroot.h"
+#include "testreporter.h"
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
 {
@@ -14,9 +15,25 @@ TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
     CHECK(!lua_isnil(L, -1));
 }
 
-TEST_CASE("require_modules")
+struct RequireFixture
 {
-    auto doPassingSubcase = [](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
+    RequireFixture()
+        : reporter(std::make_unique<TestReporter>())
+    {
+    }
+
+    TestReporter& getReporter()
+    {
+        return *reporter;
+    }
+
+private:
+    std::unique_ptr<TestReporter> reporter;
+};
+
+TEST_CASE_FIXTURE(RequireFixture, "require_modules")
+{
+    auto doPassingSubcase = [&](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
     {
         std::string pass = "pass";
         argv.push_back(pass.data());
@@ -25,10 +42,10 @@ TEST_CASE("require_modules")
         {
             argv.push_back(result.data());
         }
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     };
 
-    auto doFailingSubcase = [](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
+    auto doFailingSubcase = [&](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
     {
         std::string fail = "fail";
         argv.push_back(fail.data());
@@ -37,7 +54,7 @@ TEST_CASE("require_modules")
         {
             argv.push_back(result.data());
         }
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     };
 
     char executablePlaceholder[] = "lute";
@@ -161,7 +178,7 @@ TEST_CASE("require_modules")
     }
 }
 
-TEST_CASE("require_with_parent_ambiguity")
+TEST_CASE_FIXTURE(RequireFixture, "require_with_parent_ambiguity")
 {
     // This test case cannot be included in the general "require_modules" test
     // because ambiguity prevents the test's requirer.luau from navigating to
@@ -174,7 +191,7 @@ TEST_CASE("require_with_parent_ambiguity")
     {
         std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config/src/parent_ambiguity/folder/requirer.luau");
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 
     // .config.luau
@@ -183,11 +200,11 @@ TEST_CASE("require_with_parent_ambiguity")
         std::string requirer =
             joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config_luau/src/parent_ambiguity/folder/requirer.luau");
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }
 
-TEST_CASE("require_types")
+TEST_CASE_FIXTURE(RequireFixture, "require_types")
 {
     char executablePlaceholder[] = "lute";
     for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
@@ -195,11 +212,11 @@ TEST_CASE("require_types")
         std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/without_config/types/tester.luau");
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
 
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }
 
-TEST_CASE("require_by_string_semantics_in_cli")
+TEST_CASE_FIXTURE(RequireFixture, "require_by_string_semantics_in_cli")
 {
     char executablePlaceholder[] = "lute";
 
@@ -216,7 +233,7 @@ TEST_CASE("require_by_string_semantics_in_cli")
         for (std::string& inputPath : inputPaths)
         {
             std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
-            CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+            CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
         }
     }
 
@@ -225,6 +242,6 @@ TEST_CASE("require_by_string_semantics_in_cli")
     {
         std::string inputPath = joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/init");
         std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
-        CHECK_NE(cliMain(argv.size(), argv.data()), 0);
+        CHECK_NE(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }

@@ -5,37 +5,47 @@
 
 #include "Luau/Compiler.h"
 
-static int capture(lua_State* L)
+static int report(lua_State* L)
 {
     const char* str = luaL_tolstring(L, 1, nullptr);
-    lua_pushstring(L, "capturedoutput");
-    lua_pushstring(L, str ? str : "");
-    lua_settable(L, LUA_REGISTRYINDEX);
+    lua_getglobal(L, "reporter");
+    if (lua_islightuserdata(L, -1))
+    {
+        // It's a light userdata, proceed to retrieve
+        void* rep = lua_touserdata(L, -1); // Get it from the top of the stack
+        TestReporter* reporter = static_cast<TestReporter*>(rep);
+        reporter->reportOutput(str);
+    }
+    else
+    {
+        throw std::runtime_error("Expected reporter to be a light userdata");
+    }
     return 0;
 }
 
 CliRuntimeFixture::CliRuntimeFixture()
     : runtime(std::make_unique<Runtime>())
+    , reporter(std::make_unique<TestReporter>())
 {
-    L = setupCliState(*runtime, [](lua_State* L) {
-        lua_pushstring(L, "capturedoutput");
-        lua_pushstring(L, "");
-        lua_settable(L, LUA_REGISTRYINDEX);
-        lua_pushcfunction(L, capture, "capture");
-        lua_setglobal(L, "capture");
-    });
+    L = setupCliState(
+        *runtime,
+        [rep = reporter.get()](lua_State* L)
+        {
+            lua_pushlightuserdata(L, (void*)rep);
+            lua_setglobal(L, "reporter");
+            lua_pushcfunction(L, report, "");
+            lua_setglobal(L, "report");
+        }
+    );
 }
 
-std::string CliRuntimeFixture::getCapturedOutput()
+TestReporter& CliRuntimeFixture::getReporter()
 {
-    lua_getfield(L, LUA_REGISTRYINDEX, "capturedoutput");
-    const char* output = lua_tostring(L, -1);
-    lua_pop(L, 1);
-    return output ? output : "";
+    return *reporter;
 }
 
 bool CliRuntimeFixture::runCode(const std::string& source)
 {
     std::string bytecode = Luau::compile(source, Luau::CompileOptions());
-    return runBytecode(*runtime, bytecode, "=stdin", L, 0, nullptr);
+    return runBytecode(*runtime, bytecode, "=stdin", L, 0, nullptr, getReporter());
 }

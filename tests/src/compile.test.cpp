@@ -1,21 +1,40 @@
 #include "Luau/FileUtils.h"
-#include "doctest.h"
+
 #include "lute/climain.h"
 #include "lute/compile.h"
+
+#include "testreporter.h"
 #include "luteprojectroot.h"
 
+#include "doctest.h"
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
-TEST_CASE("lutepayload_single_file_roundtrip")
+struct CompileFixture
+{
+    CompileFixture()
+        : reporter(std::make_unique<TestReporter>())
+    {
+    }
+
+    TestReporter& getReporter()
+    {
+        return *reporter;
+    }
+
+    std::unique_ptr<TestReporter> reporter;
+};
+
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_single_file_roundtrip")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
     // Create payload and add file
-    LuteExePayload originalPayload;
+    LuteExePayload originalPayload{getReporter()};
     originalPayload.add(testFilePath);
 
     // Encode
@@ -30,7 +49,7 @@ TEST_CASE("lutepayload_single_file_roundtrip")
     CHECK(encodeResult->compressedPayloadSizeBytes <= encodeResult->uncompressedPayloadSizeBytes);
 
     // Decode
-    auto decodeResult = LuteExePayload::decode(encodeResult->payload);
+    auto decodeResult = LuteExePayload::decode(encodeResult->payload, getReporter());
     REQUIRE(decodeResult.has_value());
 
     // Verify metrics match
@@ -53,7 +72,7 @@ TEST_CASE("lutepayload_single_file_roundtrip")
     CHECK(*it == *originalIt);
 }
 
-TEST_CASE("lutepayload_multiple_files_roundtrip")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_multiple_files_roundtrip")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
 
@@ -64,7 +83,7 @@ TEST_CASE("lutepayload_multiple_files_roundtrip")
     };
 
     // Create payload with multiple files
-    LuteExePayload originalPayload;
+    LuteExePayload originalPayload{getReporter()};
     for (const auto& file : testFiles)
     {
         originalPayload.add(file);
@@ -77,7 +96,7 @@ TEST_CASE("lutepayload_multiple_files_roundtrip")
     REQUIRE(encodeResult.has_value());
     REQUIRE(!encodeResult->payload.empty());
 
-    auto decodeResult = LuteExePayload::decode(encodeResult->payload);
+    auto decodeResult = LuteExePayload::decode(encodeResult->payload, getReporter());
     REQUIRE(decodeResult.has_value());
 
     // Verify entry point
@@ -99,32 +118,32 @@ TEST_CASE("lutepayload_multiple_files_roundtrip")
     }
 }
 
-TEST_CASE("lutepayload_invalid_magic_flag")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_invalid_magic_flag")
 {
     // Create a payload with invalid magic flag
     std::string invalidPayload = "INVALID_";
     invalidPayload.append(100, 'X'); // Add some data
 
-    auto decodeResult = LuteExePayload::decode(invalidPayload);
+    auto decodeResult = LuteExePayload::decode(invalidPayload, getReporter());
     CHECK(!decodeResult.has_value());
 }
 
-TEST_CASE("lutepayload_too_small_payload")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_too_small_payload")
 {
     // Payload smaller than minimum size
     std::string tinyPayload = "TINY";
 
-    auto decodeResult = LuteExePayload::decode(tinyPayload);
+    auto decodeResult = LuteExePayload::decode(tinyPayload, getReporter());
     CHECK(!decodeResult.has_value());
 }
 
-TEST_CASE("lutepayload_corrupted_metadata")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_corrupted_metadata")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
     // Create valid payload
-    LuteExePayload originalPayload;
+    LuteExePayload originalPayload{getReporter()};
     originalPayload.add(testFilePath);
     auto encodeResult = originalPayload.encode();
     REQUIRE(encodeResult.has_value());
@@ -139,7 +158,7 @@ TEST_CASE("lutepayload_corrupted_metadata")
     }
 
     // Attempt to decode corrupted payload
-    auto decodeResult = LuteExePayload::decode(corruptedPayload);
+    auto decodeResult = LuteExePayload::decode(corruptedPayload, getReporter());
     // Should either fail or produce different results
     if (decodeResult.has_value())
     {
@@ -148,7 +167,7 @@ TEST_CASE("lutepayload_corrupted_metadata")
     }
 }
 
-TEST_CASE("lutepayload_entry_point_is_first_added")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_entry_point_is_first_added")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
@@ -156,7 +175,7 @@ TEST_CASE("lutepayload_entry_point_is_first_added")
     std::string firstFile = joinPaths(testDir, "main.luau");
     std::string secondFile = joinPaths(testDir, "utils.luau");
 
-    LuteExePayload payload;
+    LuteExePayload payload{getReporter()};
     payload.add(firstFile);
     payload.add(secondFile);
 
@@ -164,12 +183,12 @@ TEST_CASE("lutepayload_entry_point_is_first_added")
     CHECK(payload.entryPointPath == firstFile);
 }
 
-TEST_CASE("lutepayload_nonexistent_file")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_nonexistent_file")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string nonExistentFile = joinPaths(luteProjectRoot, "tests/src/this_file_does_not_exist.luau");
 
-    LuteExePayload payload;
+    LuteExePayload payload{getReporter()};
     payload.add(nonExistentFile);
 
     // Encoding should fail because file doesn't exist
@@ -177,10 +196,10 @@ TEST_CASE("lutepayload_nonexistent_file")
     CHECK(!encodeResult.has_value());
 }
 
-TEST_CASE("lutepayload_empty_payload")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_empty_payload")
 {
     // Create payload without adding any files
-    LuteExePayload emptyPayload;
+    LuteExePayload emptyPayload{getReporter()};
     CHECK(emptyPayload.entryPointPath.empty());
 
     // Encoding an empty payload should fail
@@ -188,12 +207,12 @@ TEST_CASE("lutepayload_empty_payload")
     CHECK(!encodeResult.has_value());
 }
 
-TEST_CASE("lutepayload_compression_effectiveness")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_compression_effectiveness")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
-    LuteExePayload payload;
+    LuteExePayload payload{getReporter()};
     payload.add(testFilePath);
 
     auto encodeResult = payload.encode();
@@ -208,18 +227,18 @@ TEST_CASE("lutepayload_compression_effectiveness")
     CHECK(encodeResult->bytesWritten >= encodeResult->compressedPayloadSizeBytes);
 }
 
-TEST_CASE("lutepayload_bytecode_integrity")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_bytecode_integrity")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
     // Create two separate payloads with the same file
-    LuteExePayload payload1;
+    LuteExePayload payload1{getReporter()};
     payload1.add(testFilePath);
     auto encode1 = payload1.encode();
     REQUIRE(encode1.has_value());
 
-    LuteExePayload payload2;
+    LuteExePayload payload2{getReporter()};
     payload2.add(testFilePath);
     auto encode2 = payload2.encode();
     REQUIRE(encode2.has_value());
@@ -235,13 +254,13 @@ TEST_CASE("lutepayload_bytecode_integrity")
     CHECK(encode1->payload == encode2->payload);
 }
 
-TEST_CASE("lutepayload_validates_numfiles_metadata")
+TEST_CASE_FIXTURE(CompileFixture, "lutepayload_validates_numfiles_metadata")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
     // Create and encode a valid payload
-    LuteExePayload payload;
+    LuteExePayload payload{getReporter()};
     payload.add(testFilePath);
     auto encodeResult = payload.encode();
     REQUIRE(encodeResult.has_value());
@@ -266,11 +285,11 @@ TEST_CASE("lutepayload_validates_numfiles_metadata")
     memcpy(corruptedPayload.data() + numFilesPos, &fakeNumFiles, sizeof(uint32_t));
 
     // Decoding should fail due to numFiles mismatch
-    auto decodeResult = LuteExePayload::decode(corruptedPayload);
+    auto decodeResult = LuteExePayload::decode(corruptedPayload, getReporter());
     CHECK(!decodeResult.has_value());
 }
 
-TEST_CASE("luteexecutable_single_file_roundtrip")
+TEST_CASE_FIXTURE(CompileFixture, "luteexecutable_single_file_roundtrip")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
@@ -287,12 +306,12 @@ TEST_CASE("luteexecutable_single_file_roundtrip")
     }
 
     // Create payload with a test file
-    LuteExePayload originalPayload;
+    LuteExePayload originalPayload{getReporter()};
     originalPayload.add(testFilePath);
 
     // Create LuteExecutable and write it out
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe");
-    LuteExecutable executable(dummyExePath);
+    LuteExecutable executable{dummyExePath, getReporter()};
 
     bool createSuccess = executable.create(outputExePath, originalPayload);
     REQUIRE(createSuccess);
@@ -303,7 +322,7 @@ TEST_CASE("luteexecutable_single_file_roundtrip")
     checkFile.close();
 
     // Extract the payload from the created executable
-    LuteExecutable readExecutable(outputExePath);
+    LuteExecutable readExecutable{outputExePath, getReporter()};
     auto extractedPayload = readExecutable.extract();
     REQUIRE(extractedPayload.has_value());
 
@@ -325,7 +344,7 @@ TEST_CASE("luteexecutable_single_file_roundtrip")
     std::remove(outputExePath.c_str());
 }
 
-TEST_CASE("luteexecutable_multiple_files_roundtrip")
+TEST_CASE_FIXTURE(CompileFixture, "luteexecutable_multiple_files_roundtrip")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
@@ -345,7 +364,7 @@ TEST_CASE("luteexecutable_multiple_files_roundtrip")
     }
 
     // Create payload with multiple files
-    LuteExePayload originalPayload;
+    LuteExePayload originalPayload{getReporter()};
     for (const auto& file : testFiles)
     {
         originalPayload.add(file);
@@ -356,13 +375,13 @@ TEST_CASE("luteexecutable_multiple_files_roundtrip")
 
     // Create the executable
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe_multi");
-    LuteExecutable executable(dummyExePath);
+    LuteExecutable executable{dummyExePath, getReporter()};
 
     bool createSuccess = executable.create(outputExePath, originalPayload);
     REQUIRE(createSuccess);
 
     // Extract the payload
-    LuteExecutable readExecutable(outputExePath);
+    LuteExecutable readExecutable{outputExePath, getReporter()};
     auto extractedPayload = readExecutable.extract();
     REQUIRE(extractedPayload.has_value());
 
@@ -389,7 +408,7 @@ TEST_CASE("luteexecutable_multiple_files_roundtrip")
     std::remove(outputExePath.c_str());
 }
 
-TEST_CASE("luteexecutable_extract_from_plain_executable")
+TEST_CASE_FIXTURE(CompileFixture, "luteexecutable_extract_from_plain_executable")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
 
@@ -404,7 +423,7 @@ TEST_CASE("luteexecutable_extract_from_plain_executable")
     }
 
     // Attempt to extract - should return nullopt since there's no payload
-    LuteExecutable executable(plainExePath);
+    LuteExecutable executable{plainExePath, getReporter()};
     auto extractedPayload = executable.extract();
     CHECK(!extractedPayload.has_value());
 
@@ -412,7 +431,7 @@ TEST_CASE("luteexecutable_extract_from_plain_executable")
     std::remove(plainExePath.c_str());
 }
 
-TEST_CASE("luteexecutable_extract_preserves_original_executable")
+TEST_CASE_FIXTURE(CompileFixture, "luteexecutable_extract_preserves_original_executable")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
@@ -428,11 +447,11 @@ TEST_CASE("luteexecutable_extract_preserves_original_executable")
     }
 
     // Create payload and executable
-    LuteExePayload payload;
+    LuteExePayload payload{getReporter()};
     payload.add(testFilePath);
 
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe_preserve");
-    LuteExecutable executable(dummyExePath);
+    LuteExecutable executable{dummyExePath, getReporter()};
     bool createSuccess = executable.create(outputExePath, payload);
     REQUIRE(createSuccess);
 
@@ -452,7 +471,7 @@ TEST_CASE("luteexecutable_extract_preserves_original_executable")
     std::remove(outputExePath.c_str());
 }
 
-TEST_CASE("compile_command_e2e")
+TEST_CASE_FIXTURE(CompileFixture, "compile_command_e2e")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
 
@@ -473,7 +492,7 @@ TEST_CASE("compile_command_e2e")
     std::vector<char*> argv = {executablePlaceholder, compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
 
     // Run the compile command
-    int compileResult = cliMain(argv.size(), argv.data());
+    int compileResult = cliMain(argv.size(), argv.data(), getReporter());
     REQUIRE(compileResult == 0);
 
     // Verify the output file was created
@@ -483,7 +502,7 @@ TEST_CASE("compile_command_e2e")
 
     // Now run the compiled executable to verify it works
     std::vector<char*> runArgv = {outputExePath.data()};
-    int runResult = cliMain(runArgv.size(), runArgv.data());
+    int runResult = cliMain(runArgv.size(), runArgv.data(), getReporter());
     CHECK(runResult == 0);
 
     // Clean up

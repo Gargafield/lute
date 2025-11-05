@@ -4,16 +4,34 @@
 
 #include "Luau/FileUtils.h"
 
+#include "testreporter.h"
+
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
-TEST_CASE("staticrequiretracer_simple_dependencies")
+struct StaticRequireTracerFixture
+{
+    StaticRequireTracerFixture()
+        : reporter(std::make_unique<TestReporter>())
+    {
+    }
+
+    TestReporter& getReporter()
+    {
+        return *reporter;
+    }
+
+    std::unique_ptr<TestReporter> reporter;
+};
+
+TEST_CASE_FIXTURE(StaticRequireTracerFixture, "staticrequiretracer_simple_dependencies")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
-    StaticRequireTracer tracer;
+    StaticRequireTracer tracer{getReporter()};
     std::vector<std::string> deps = tracer.trace(testDir, "main.luau");
 
     // Should find: main.luau, utils.luau, lib/helper.luau, shared.luau
@@ -23,12 +41,7 @@ TEST_CASE("staticrequiretracer_simple_dependencies")
     CHECK(deps[0] == "main.luau");
 
     // Verify all expected files are present (paths are relative to testDir)
-    std::vector<std::string> expectedFiles = {
-        "main.luau",
-        "utils.luau",
-        "lib/helper.luau",
-        "shared.luau"
-    };
+    std::vector<std::string> expectedFiles = {"main.luau", "utils.luau", "lib/helper.luau", "shared.luau"};
 
     for (const auto& expected : expectedFiles)
     {
@@ -37,12 +50,12 @@ TEST_CASE("staticrequiretracer_simple_dependencies")
     }
 }
 
-TEST_CASE("staticrequiretracer_circular_dependencies")
+TEST_CASE_FIXTURE(StaticRequireTracerFixture, "staticrequiretracer_circular_dependencies")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
-    StaticRequireTracer tracer;
+    StaticRequireTracer tracer{getReporter()};
     std::vector<std::string> deps = tracer.trace(testDir, "circular_a.luau");
 
     // Should find both circular_a and circular_b without infinite loop
@@ -59,12 +72,12 @@ TEST_CASE("staticrequiretracer_circular_dependencies")
     CHECK(hasB);
 }
 
-TEST_CASE("staticrequiretracer_no_dependencies")
+TEST_CASE_FIXTURE(StaticRequireTracerFixture, "staticrequiretracer_no_dependencies")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
-    StaticRequireTracer tracer;
+    StaticRequireTracer tracer{getReporter()};
     std::vector<std::string> deps = tracer.trace(testDir, "utils.luau");
 
     // utils.luau has no requires, should only return itself
@@ -72,12 +85,12 @@ TEST_CASE("staticrequiretracer_no_dependencies")
     CHECK(deps[0] == "utils.luau");
 }
 
-TEST_CASE("staticrequiretracer_relative_paths")
+TEST_CASE_FIXTURE(StaticRequireTracerFixture, "staticrequiretracer_relative_paths")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
-    StaticRequireTracer tracer;
+    StaticRequireTracer tracer{getReporter()};
     std::vector<std::string> deps = tracer.trace(testDir, "lib/helper.luau");
 
     // helper.luau requires ../shared, should resolve correctly
@@ -89,12 +102,12 @@ TEST_CASE("staticrequiretracer_relative_paths")
     CHECK(hasShared);
 }
 
-TEST_CASE("staticrequiretracer_require_graph")
+TEST_CASE_FIXTURE(StaticRequireTracerFixture, "staticrequiretracer_require_graph")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
-    StaticRequireTracer tracer;
+    StaticRequireTracer tracer{getReporter()};
     std::vector<std::string> deps = tracer.trace(testDir, "main.luau");
 
     const auto& graph = tracer.getRequireGraph();
