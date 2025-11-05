@@ -21,8 +21,6 @@ int compile_luau(lua_State* L);
 
 int load_luau(lua_State* L);
 
-int luau_getReturnType(lua_State* L);
-
 int luau_typeofmodule(lua_State* L);
 
 static const luaL_Reg lib[] = {
@@ -31,7 +29,6 @@ static const luaL_Reg lib[] = {
     {"compile", compile_luau},
     {"load", load_luau},
     {"resolverequire", resolverequire_luau},
-    {"getReturnType", luau_getReturnType},
     {"typeofmodule", luau_typeofmodule},
     {nullptr, nullptr},
 };
